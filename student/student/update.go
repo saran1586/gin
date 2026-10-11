@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -16,7 +17,11 @@ type Student struct {
 
 func main() {
 
-	dsn := "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable"
+	// Connection string comes from DATABASE_URL; the fallback is a local development database.
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable"
+	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -29,13 +34,10 @@ func main() {
 
 	server := gin.Default()
 
-	
 	server.PUT("/students/:id", func(c *gin.Context) {
 
-		
 		id := c.Param("id")
 
-		
 		var student Student
 
 		if err := db.First(&student, id).Error; err != nil {
@@ -45,7 +47,6 @@ func main() {
 			return
 		}
 
-		
 		var input Student
 
 		if err := c.ShouldBindJSON(&input); err != nil {

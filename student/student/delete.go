@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -16,43 +17,47 @@ type Student struct {
 
 func main() {
 
-dsn := "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable"
+	// Connection string comes from DATABASE_URL; the fallback is a local development database.
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable"
+	}
 
-db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-if err != nil {
-panic(err)
-}
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
 
-if err := db.AutoMigrate(&Student{}); err != nil {
-panic(err)
-}
+	if err := db.AutoMigrate(&Student{}); err != nil {
+		panic(err)
+	}
 
-server.DELETE("/students/:id", func(c *gin.Context) {
+	server := gin.Default()
 
-id := c.Param("id")
+	server.DELETE("/students/:id", func(c *gin.Context) {
 
-var student Student
+		id := c.Param("id")
 
-	
-if err := db.First(&student, id).Error; err != nil {
-c.JSON(http.StatusNotFound, gin.H{
-"message": "student not found",
-})
-return
-}
+		var student Student
 
-	
-if err := db.Delete(&student).Error; err != nil {
-c.JSON(http.StatusInternalServerError, gin.H{
-"message": "delete failed",
-})
-return
-}
+		if err := db.First(&student, id).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "student not found",
+			})
+			return
+		}
 
-c.JSON(http.StatusOK, gin.H{
-"message": "Student Deleted Successfully",
-})
-})
+		if err := db.Delete(&student).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "delete failed",
+			})
+			return
+		}
 
-server.Run(":8080")
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Student Deleted Successfully",
+		})
+	})
+
+	server.Run(":8080")
 }

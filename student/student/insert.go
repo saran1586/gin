@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -16,61 +17,64 @@ type Student struct {
 
 func main() {
 
-	dsn := "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable"
+	// Connection string comes from DATABASE_URL; the fallback is a local development database.
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable"
+	}
 
-db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-if err != nil {
-panic(err)
-}
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
 
-if err := db.AutoMigrate(&Student{}); err != nil {
-panic(err)
-}
+	if err := db.AutoMigrate(&Student{}); err != nil {
+		panic(err)
+	}
 
-server := gin.Default()
+	server := gin.Default()
 
-	
-server.POST("/students", func(c *gin.Context) {
+	server.POST("/students", func(c *gin.Context) {
 
-var student Student
+		var student Student
 
-if err := c.ShouldBindJSON(&student); err != nil {
-c.JSON(http.StatusBadRequest, gin.H{
-"message": "Invalid Request",
-})
-return
-}
+		if err := c.ShouldBindJSON(&student); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid Request",
+			})
+			return
+		}
 
-if err := db.Create(&student).Error; err != nil {
-c.JSON(http.StatusInternalServerError, gin.H{
-"message": "Failed to create student",
-})
-return
-}
+		if err := db.Create(&student).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Failed to create student",
+			})
+			return
+		}
 
-c.JSON(http.StatusCreated, gin.H{
-"message": "Student Created Successfully",
-"data":    student,
-})
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Student Created Successfully",
+			"data":    student,
+		})
 
-})
-server.GET("/students", func(c *gin.Context) {
+	})
+	server.GET("/students", func(c *gin.Context) {
 
-var students []Student
+		var students []Student
 
-if err := db.Find(&students).Error; err != nil {
-c.JSON(http.StatusInternalServerError, gin.H{
-"message": "failed to fetch students",
-})
-return
-}
+		if err := db.Find(&students).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "failed to fetch students",
+			})
+			return
+		}
 
-c.JSON(http.StatusOK, gin.H{
-"message": "students fetched successfully",
-"data":    students,
-})
+		c.JSON(http.StatusOK, gin.H{
+			"message": "students fetched successfully",
+			"data":    students,
+		})
 
-})
+	})
 
-server.Run(":8080")
+	server.Run(":8080")
 }
